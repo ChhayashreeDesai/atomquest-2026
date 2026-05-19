@@ -150,6 +150,4 @@ Full endpoint and file-level detail: [architecture_reference.md](./architecture_
 - `ADMIN_DEV_MODE` uses header-based role switching for development only; disable in production.
 - Configure real SMTP and authentication before a production HR rollout.
 
-## License
 
-Proprietary — Atomquest Inc.
