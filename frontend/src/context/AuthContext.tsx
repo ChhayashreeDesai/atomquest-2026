@@ -84,16 +84,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string) => {
     try {
       setIsLoading(true);
-      const targetUser = mockUsersByEmail[email.trim().toLowerCase()];
+      
+      // Call the actual backend login API
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
 
-      if (targetUser) {
-        setUser(targetUser);
-        sessionStorage.setItem('user', JSON.stringify(targetUser));
-        sessionStorage.setItem('devRole', targetUser.role);
-        sessionStorage.setItem('systemDate', systemDate.toISOString().split('T')[0]);
-      } else {
-        throw new Error('User account profile not registered in authorization context.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Login failed');
       }
+
+      const userData = await response.json();
+      
+      setUser(userData);
+      sessionStorage.setItem('user', JSON.stringify(userData));
+      sessionStorage.setItem('devRole', userData.role);
+      sessionStorage.setItem('systemDate', systemDate.toISOString().split('T')[0]);
     } catch (error) {
       console.error('Login routing exception:', error);
       throw error;
