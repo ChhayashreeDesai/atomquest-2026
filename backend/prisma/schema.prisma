@@ -1,0 +1,265 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  role      Role     @default(EMPLOYEE)
+  managerId String?
+  manager   User?    @relation("ManagerRelation", fields: [managerId], references: [id], onDelete: SetNull)
+  reports   User[]   @relation("ManagerRelation")
+
+  // Relations
+  goalSheets            GoalSheet[]
+  goalsAsOwner          Goal[]           @relation("PrimaryOwner")
+  checkInComments       CheckInComment[]
+  checkInApprovalsGiven CheckInComment[] @relation("CheckInApprover")
+  auditLogs             AuditLog[]
+  escalations           Escalation[]
+  notifications         Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([managerId])
+}
+
+model GoalSheet {
+  id         String @id @default(cuid())
+  userId     String
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status     GoalSheetStatus @default(DRAFT)
+  cycleYear  String          @default("2026")
+  fiscalYear String          @default("2026-2027")
+  quarter    SheetQuarter    @default(ANNUAL)
+  isActive   Boolean         @default(true)
+  managerFeedback String?
+
+  goals             Goal[]
+  checkInComments   CheckInComment[]
+  auditLogs         AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([isActive])
+  @@unique([userId, fiscalYear])
+}
+
+model Goal {
+  id                 String  @id @default(cuid())
+  goalSheetId        String
+  goalSheet          GoalSheet @relation(fields: [goalSheetId], references: [id], onDelete: Cascade)
+  
+  thrustArea         String
+  title              String
+  description        String
+  uomType            UoMType
+  targetValue        String
+  weightage          Int     @default(0)
+  
+  actualAchievement  String?
+  progressScore      Float?  @default(0.0)
+  completionStatus   CompletionStatus @default(NOT_STARTED)
+  
+  isShared           Boolean @default(false)
+  primaryOwnerId     String?
+  primaryOwner       User?   @relation("PrimaryOwner", fields: [primaryOwnerId], references: [id], onDelete: SetNull)
+  
+  sharedGoalParentId String?
+  sharedGoalParent   Goal?   @relation("SharedGoals", fields: [sharedGoalParentId], references: [id], onDelete: SetNull)
+  sharedGoalChildren Goal[]  @relation("SharedGoals")
+
+  auditLogs          AuditLog[]
+  quarterlyEntries   GoalQuarterlyEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([goalSheetId])
+  @@index([primaryOwnerId])
+  @@index([sharedGoalParentId])
+}
+
+model GoalQuarterlyEntry {
+  id                 String           @id @default(cuid())
+  goalId             String
+  goal               Goal             @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  quarter            Quarter
+  actualAchievement  String?
+  progressScore      Float?           @default(0.0)
+  completionStatus   CompletionStatus @default(NOT_STARTED)
+  isSubmitted        Boolean          @default(false)
+  submittedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([goalId, quarter])
+  @@index([goalId])
+  @@index([quarter])
+}
+
+model CheckInComment {
+  id           String   @id @default(cuid())
+  goalSheetId  String
+  goalSheet    GoalSheet @relation(fields: [goalSheetId], references: [id], onDelete: Cascade)
+  
+  quarter      Quarter
+  createdByUserId String
+  createdBy    User     @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  
+  commentText  String
+  
+  // Approval tracking for manager review gate
+  approvalStatus CheckInApprovalStatus @default(PENDING)
+  approvedByUserId String?
+  approvedBy   User?    @relation("CheckInApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  approvalTimestamp DateTime?
+  reworkRequested Boolean @default(false)
+  reworkComments  String?
+  managerComments String?
+  
+  timestamp    DateTime @default(now())
+
+  @@index([goalSheetId])
+  @@index([quarter])
+  @@index([createdByUserId])
+  @@index([approvalStatus])
+}
+
+model AuditLog {
+  id              String     @id @default(cuid())
+  goalId          String
+  goal            Goal       @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  
+  // This lines up the missing opposite relation with GoalSheet cleanly
+  goalSheetId     String?
+  goalSheet       GoalSheet? @relation(fields: [goalSheetId], references: [id], onDelete: Cascade)
+  
+  changedByUserId String
+  changedBy       User       @relation(fields: [changedByUserId], references: [id], onDelete: SetNull)
+  
+  oldValue        String?
+  newValue        String?
+  actionTaken     String
+  timestamp       DateTime   @default(now())
+
+  @@index([goalId])
+  @@index([goalSheetId])
+  @@index([changedByUserId])
+  @@index([timestamp])
+}
+
+model Escalation {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  ruleTriggered String
+  level        EscalationLevel
+  status       EscalationStatus @default(OPEN)
+  timestamp    DateTime @default(now())
+
+  @@index([userId])
+  @@index([status])
+  @@index([timestamp])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      NotificationType
+  subject   String
+  body      String
+  isRead    Boolean  @default(false)
+  
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+// Enums
+enum Role {
+  EMPLOYEE
+  MANAGER
+  ADMIN
+}
+
+enum GoalSheetStatus {
+  DRAFT
+  SUBMITTED
+  LOCKED
+  ARCHIVED
+}
+
+enum SheetQuarter {
+  Q1
+  Q2
+  Q3
+  Q4
+  ANNUAL
+}
+
+enum CheckInApprovalStatus {
+  PENDING
+  APPROVED
+  REWORK_REQUESTED
+}
+
+enum UoMType {
+  MIN_NUMERIC    // Higher is better
+  MAX_NUMERIC    // Lower is better
+  TIMELINE       // Date-based
+  ZERO           // Zero = Success
+}
+
+enum CompletionStatus {
+  NOT_STARTED
+  ON_TRACK
+  COMPLETED
+}
+
+enum Quarter {
+  Q1
+  Q2
+  Q3
+  Q4
+}
+
+enum EscalationLevel {
+  EMPLOYEE
+  MANAGER
+  HR
+}
+
+enum EscalationStatus {
+  OPEN
+  RESOLVED
+}
+
+enum NotificationType {
+  GOAL_SUBMISSION
+  GOAL_APPROVAL
+  GOAL_REJECTION
+  CHECK_IN_REMINDER
+  ESCALATION_ALERT
+  SHARED_GOAL_UPDATE
+}
