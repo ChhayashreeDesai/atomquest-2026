@@ -26,7 +26,14 @@ const PORT = process.env.PORT || 5000;
  * Global Middleware
  */
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: [
+    "https://atomquest-2026-1.onrender.com",
+    "https://atomquest-2026.onrender.com",
+    "http://localhost:5173"
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 /**
