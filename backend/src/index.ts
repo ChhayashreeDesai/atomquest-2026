@@ -29,7 +29,7 @@ app.use(helmet());
 app.use(cors({
   origin: [
     "https://atomquest-2026-1.onrender.com",
-    "https://atomquest-2026.onrender.com",
+    "https://atomquest-2026-b3f1.onrender.com",
     "http://localhost:5173"
   ],
   credentials: true
@@ -130,8 +130,10 @@ async function startServer() {
     // Connect to database
     await connectDatabase();
 
-    // Initialize email service
-    await initializeEmailService();
+    // Initialize email service (non-blocking - don't fail server if email fails)
+    initializeEmailService().catch((err) => {
+      console.warn("⚠️  Email service initialization failed (continuing without email):", err);
+    });
 
     // Start Express server
     app.listen(PORT, () => {

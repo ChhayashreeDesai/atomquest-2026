@@ -61,6 +61,15 @@ export async function devAuthMiddleware(
   next: NextFunction
 ) {
   try {
+    // Allow public routes to bypass strict ID checking and date validation
+    if (isPublicAuthRoute(req)) {
+      const roleHeader = (req.headers["x-dev-role"] as string) || "EMPLOYEE";
+      const dateValue = (req.headers["x-system-date"] as string) || "2026-05-01";
+      const systemDate = parseSystemDate(dateValue);
+      req.systemDate = systemDate || new Date("2026-05-01");
+      return next();
+    }
+
     const roleHeader = (req.headers["x-dev-role"] as string) || "EMPLOYEE";
     const userIdHeader = req.headers["x-user-id"] as string | undefined;
     const dateValue = (req.headers["x-system-date"] as string) || "2026-05-01";
@@ -70,11 +79,6 @@ export async function devAuthMiddleware(
       return res.status(400).json({ error: "Invalid date format" });
     }
     req.systemDate = systemDate;
-
-    // Allow public routes to bypass strict ID checking
-    if (isPublicAuthRoute(req)) {
-      return next();
-    }
 
     // FIX: Fail fast. No more silent fallbacks to emp-001.
     if (!userIdHeader) {
