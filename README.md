@@ -145,12 +145,6 @@ Full endpoint and file-level detail: [architecture_reference.md](./architecture_
 | Frontend | React 18, Vite, TypeScript, Tailwind CSS, Recharts, Axios |
 | Email | Nodemailer (optional SMTP) |
 
-## Security notes
-
-- Do not commit `.env`, `node_modules`, or build output (`dist/`).
-- Rotate any credentials that were ever stored in a local `.env` before pushing.
-- `ADMIN_DEV_MODE` uses header-based role switching for development only; disable in production.
-- Configure real SMTP and authentication before a production HR rollout.
 
 ## License
 
